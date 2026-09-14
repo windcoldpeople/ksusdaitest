@@ -1,36 +1,40 @@
-name: Unpack quiz app
+name: Repair quiz app
 
 on:
-  push:
-    paths:
-      - '.github/workflows/unpack-app.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  unpack:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Unpack app into plain HTML
+      - name: Restore and unpack full quiz app
         run: |
           node <<'NODE'
           const fs = require('fs');
           const zlib = require('zlib');
-          const src = fs.readFileSync('index.html', 'utf8');
+          const cp = require('child_process');
+          const src = cp.execFileSync('git', ['show', 'b9f17bda5c87487656380152aef3ca3301f21b94:index.html'], {encoding:'utf8'});
           const m = src.match(/atob\('([^']+)'\)/);
-          if (!m) throw new Error('Compressed quiz payload not found');
+          if (!m) throw new Error('Full compressed quiz payload not found in source commit');
           const html = zlib.gunzipSync(Buffer.from(m[1], 'base64')).toString('utf8');
+          if (!html.includes('生成式 AI 甲級') || !html.includes('生成式人工智慧乙級') || !html.includes('人工智慧乙級')) {
+            throw new Error('Restored HTML validation failed');
+          }
           fs.writeFileSync('index.html', html, 'utf8');
-          console.log(`Wrote plain index.html: ${html.length} characters`);
+          console.log(`Restored plain index.html: ${html.length} characters`);
           NODE
 
-      - name: Commit plain HTML
+      - name: Commit repaired site
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Fix browser compatibility: unpack quiz app"
+          git commit -m "Repair quiz app: restore plain full HTML"
           git push
