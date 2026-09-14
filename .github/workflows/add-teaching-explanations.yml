@@ -1,0 +1,112 @@
+name: Add teaching explanations
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-teaching-explanations.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add explanations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, json, gzip, base64
+
+          payload = """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ksdbMXaLylJfrx3j35oybtr4v5ariga4XLYYny6XRHStPs/360RnOx8lD8eNA8m+7kcUl4q3HdonDDxVOa/gNxhauffgvtGOhKUcPzmfu7uBQRV34IveWxwiWU/zVRI3xEhxGEOw++YAKoa4Kn0QvEC/uOy65stajF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbV37YbLrmi1rMXWuWredL1W1d+2Gy65otazF1rlq3nS9VtXfthsuuaLWsxda5at50vVbf=="""
+          reasons = json.loads(gzip.decompress(base64.b64decode(payload)).decode("utf-8"))
+
+          p = Path("index.html")
+          s = p.read_text(encoding="utf-8")
+          m = re.search(r'const B=(\{.*?\});let st=', s, re.S)
+          if not m:
+              raise SystemExit("Question bank not found")
+          B = json.loads(m.group(1))
+
+          expected = {"genai_level_a":300,"genai_level_b":150,"ai_level_b":219}
+          for sk, count in expected.items():
+              if sk not in B or len(B[sk]["q"]) != count:
+                  raise SystemExit(f"Count mismatch: {sk}")
+              if sk not in reasons or len(reasons[sk]) != count:
+                  raise SystemExit(f"Reason count mismatch: {sk}")
+              for q in B[sk]["q"]:
+                  num = str(q[0])
+                  opts, ans = q[3], q[4]
+                  hit = next((o for o in opts if o[2] == ans), None)
+                  if not hit:
+                      raise SystemExit(f"Missing correct option {sk} {num}")
+                  if num not in reasons[sk]:
+                      raise SystemExit(f"Missing explanation {sk} {num}")
+                  letter, answer = hit[0], " ".join(hit[1].split())
+                  question = " ".join(q[2].split())
+                  r = reasons[sk][num]
+
+                  neg_patterns = [
+                    r'不包括',r'不屬於',r'不是',r'何者為非',r'哪一項為非',
+                    r'何者不正確',r'哪一項不正確',r'哪個不正確',
+                    r'何者錯誤',r'哪一項錯誤',r'哪個錯誤',
+                    r'哪一個項目是錯誤',r'不包含下列',r'無法緩解'
+                  ]
+                  neg = any(re.search(x, question) for x in neg_patterns)
+
+                  if neg:
+                      exp = (
+                        "考點：這是一題例外／錯誤辨識題，先確認題幹中的否定條件。 "
+                        f"依題庫答案，正解是 {letter}「{answer}」。 "
+                        f"{r} "
+                        "易混淆：其他選項可能都與主題相關，但本題要找的是不符合定義、用途或情境的那一個。"
+                      )
+                  else:
+                      exp = (
+                        "考點：把題幹的關鍵功能、定義或應用情境對應到正確概念。 "
+                        f"依題庫答案，正解是 {letter}「{answer}」。 "
+                        f"{r} "
+                        "易混淆：先抓題幹關鍵詞，再比較選項的實際用途與處理對象，不要只因名詞熟悉就作答。"
+                      )
+                  q[6] = exp
+                  q[7] = "ai_teaching_v1"
+
+          total = sum(len(v["q"]) for v in B.values())
+          if total != 669:
+              raise SystemExit(f"Expected 669, got {total}")
+          if any(not q[6] or q[7] != "ai_teaching_v1" for v in B.values() for q in v["q"]):
+              raise SystemExit("Explanation validation failed")
+
+          newB = json.dumps(B, ensure_ascii=False, separators=(",",":"))
+          s = s[:m.start(1)] + newB + s[m.end(1):]
+
+          old = 'es.textContent=x[7]==="ai_draft"?"AI 解析草稿｜尚待正式 QA":"答案來源：原 PDF 題庫"'
+          new = 'es.textContent=x[7]==="ai_teaching_v1"?"AI 教學解析｜非官方題解；正確答案依原 PDF 題庫":x[7]==="ai_draft"?"AI 解析草稿｜尚待正式 QA":"答案來源：原 PDF 題庫"'
+          if old not in s:
+              raise SystemExit("Review label marker not found")
+          s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding="utf-8")
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>',s,re.S)
+          Path('/tmp/app.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/app.js
+
+      - name: Commit app and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/add-teaching-explanations.yml
+          git add index.html
+          git commit -m "Add teaching explanations for all 669 questions"
+          git push
