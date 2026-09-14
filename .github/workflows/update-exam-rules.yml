@@ -1,0 +1,52 @@
+name: Update exam rules
+
+on:
+  push:
+    paths:
+      - '.github/workflows/update-exam-rules.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update app to 50-question exams
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('選擇科目後即可開始作答。交卷後可查看成績與逐題檢討。','選擇科目後，系統會從該科完整題庫隨機抽出 50 題。每題 2 分，滿分 100 分；交卷後可查看成績與逐題檢討。')
+          s=s.replace('<small>300 題</small>','<small>題庫 300 題｜每次隨機抽 50 題</small>')
+          s=s.replace('<small>150 題</small>','<small>題庫 150 題｜每次隨機抽 50 題</small>')
+          s=s.replace('<small>219 題（原 PDF 標示 220 題）</small>','<small>題庫 219 題｜每次隨機抽 50 題（原 PDF 標示 220 題）</small>')
+          marker='let st={b:null,i:0,a:{}};'
+          i=s.find(marker)
+          if i<0:
+              raise SystemExit('state marker not found')
+          tail='''let st={b:null,qs:[],i:0,a:{}};const $=x=>document.getElementById(x),vs=["home","quiz","confirm","result","reviewV"],N=50;function show(x){vs.forEach(v=>$(v).classList.toggle("on",v===x));scrollTo(0,0)}function sample(a,n=N){let x=[...a];for(let i=x.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x.slice(0,Math.min(n,x.length))}function start(s){st.b=B[s];st.qs=sample(st.b.q);st.i=0;st.a={};render();show("quiz")}function q(){return st.qs[st.i]}function render(){let x=q(),n=st.qs.length;$("sn").textContent=st.b.n;$("cnt").textContent=`${st.i+1} / ${n}`;$("sec").textContent=st.b.s[x[1]]||`原題號 ${x[0]}`;$("qt").textContent=x[2];$("prog").style.width=`${Object.keys(st.a).length/n*100}%`;$("asset").innerHTML=x[5]?`<img src="${x[5]}" alt="題目圖片">`:"";let c=$("choices");c.innerHTML="";x[3].forEach(z=>{let b=document.createElement("button");b.className="choice"+(st.a[x[0]]===z[2]?" sel":"");b.innerHTML=`<span class="lab">${z[0]}</span><span></span>`;b.lastChild.textContent=z[1];b.onclick=()=>{st.a[x[0]]=z[2];render()};c.appendChild(b)});$("prev").disabled=st.i===0;let last=st.i===n-1;$("next").classList.toggle("hide",last);$("finish").classList.toggle("hide",!last)}function choice(x,id){if(!id)return"未作答";let c=x[3].find(z=>z[2]===id);return c?`${c[0]}. ${c[1]}`:"未作答"}document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>start(b.dataset.s));$("prev").onclick=()=>{if(st.i){st.i--;render()}};$("next").onclick=()=>{if(st.i<st.qs.length-1){st.i++;render()}};$("finish").onclick=()=>{let a=Object.keys(st.a).length,u=st.qs.length-a;$("sum").textContent=`已完成 ${a} / ${st.qs.length} 題。每題 2 分，滿分 100 分。`;$("uw").textContent=`還有 ${u} 題未作答。若現在送出，未作答題目會計為 0 分。`;$("uw").classList.toggle("hide",!u);show("confirm")};$("back").onclick=()=>show("quiz");$("send").onclick=()=>{let r=st.qs.filter(x=>st.a[x[0]]===x[4]).length,w=st.qs.length-r,p=r*2;$("score").textContent=`${p} 分`;$("right").textContent=r;$("wrong").textContent=w;$("acc").textContent=`${p}%`;show("result")};$("review").onclick=()=>{let l=$("rl");l.innerHTML="";st.qs.forEach((x,i)=>{let u=st.a[x[0]],ok=u===x[4],d=document.createElement("article");d.className="rev "+(ok?"ok":"bad");d.innerHTML=`<div><span>第 ${i+1} 題｜原題號 ${x[0]}</span> <strong>${ok?"✓ 答對｜2 分":"✕ 答錯｜0 分"}</strong></div><h2></h2><div class="ans"><div><strong>我的答案：</strong></div><div><strong>正確答案：</strong></div></div><div class="exp"><strong>解析</strong><p></p><small></small></div><div class="src"></div>`;d.querySelector("h2").textContent=x[2];let ad=d.querySelectorAll(".ans div");ad[0].append(document.createTextNode(choice(x,u)));ad[1].append(document.createTextNode(choice(x,x[4])));let ep=d.querySelector(".exp p"),es=d.querySelector(".exp small");ep.textContent=x[6]||"目前題庫無解析；正確答案依原 PDF 題庫。";es.textContent=x[7]==="ai_draft"?"AI 解析草稿｜尚待正式 QA":"答案來源：原 PDF 題庫";d.querySelector(".src").textContent=st.b.s[x[1]]||"";l.appendChild(d)});show("reviewV")};$("rb").onclick=()=>show("result");$("again").onclick=()=>{st.qs=sample(st.b.q);st.i=0;st.a={};render();show("quiz")};$("homeBtn").onclick=$("rh").onclick=()=>show("home");</script></body></html>'''
+          s=s[:i]+tail
+          p.write_text(s,encoding='utf-8')
+          if 'function sample' not in s or '每題 2 分，滿分 100 分' not in s or '${p} 分' not in s:
+              raise SystemExit('validation failed')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>',s,re.S)
+          Path('/tmp/app.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/app.js
+
+      - name: Commit updated app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Change exams to random 50 questions at 2 points each"
+          git push
